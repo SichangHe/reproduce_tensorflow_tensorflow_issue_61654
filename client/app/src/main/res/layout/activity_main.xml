@@ -48,7 +48,7 @@
             android:importantForAutofill="no" />
 
     <Button
-            android:id="@+id/load_data"
+            android:id="@+id/evaluate"
             style="@android:style/Widget.Material.Button.Colored"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -58,8 +58,8 @@
             android:background="@drawable/rounded_corner"
             android:backgroundTint="#F2B705"
             android:fontFamily="@font/share_tech_mono"
-            android:onClick="loadData"
-            android:text="Load Dataset" />
+            android:onClick="evaluate"
+            android:text="Evaluate" />
 
     <Button
             android:id="@+id/trainFederated"

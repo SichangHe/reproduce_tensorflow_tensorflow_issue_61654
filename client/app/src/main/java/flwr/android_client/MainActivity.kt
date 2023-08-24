@@ -13,14 +13,13 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.room.Room
 import dev.flower.flower_tflite.FlowerClient
 import dev.flower.flower_tflite.FlowerServiceRunnable
 import dev.flower.flower_tflite.SampleSpec
 import dev.flower.flower_tflite.createFlowerService
-import dev.flower.flower_tflite.helpers.classifierAccuracy
 import dev.flower.flower_tflite.helpers.loadMappedAssetFile
 import dev.flower.flower_tflite.helpers.negativeLogLikelihoodLoss
+import dev.flower.flower_tflite.helpers.placeholderAccuracy
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import java.util.*
@@ -32,47 +31,36 @@ class MainActivity : AppCompatActivity() {
     lateinit var flowerServiceRunnable: FlowerServiceRunnable<Float3DArray, FloatArray>
     private lateinit var ip: EditText
     private lateinit var port: EditText
-    private lateinit var loadDataButton: Button
+    private lateinit var evaluateButton: Button
     private lateinit var trainButton: Button
     private lateinit var resultText: TextView
     private lateinit var deviceId: EditText
-    lateinit var db: Db
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        db = Room.databaseBuilder(this, Db::class.java, "model-db").build()
         setContentView(R.layout.activity_main)
         resultText = findViewById(R.id.grpc_response_text)
         resultText.movementMethod = ScrollingMovementMethod()
         deviceId = findViewById(R.id.device_id_edit_text)
         ip = findViewById(R.id.serverIP)
         port = findViewById(R.id.serverPort)
-        loadDataButton = findViewById(R.id.load_data)
+        evaluateButton = findViewById(R.id.evaluate)
         trainButton = findViewById(R.id.trainFederated)
         createFlowerClient()
-        scope.launch { restoreInput() }
     }
 
     private fun createFlowerClient() {
-        val buffer = loadMappedAssetFile(this, "model/cifar10.tflite")
-        val layersSizes = intArrayOf(1800, 24, 9600, 64, 768000, 480, 40320, 336, 3360, 40)
+        val buffer = loadMappedAssetFile(this, "fed_mcrnn1.tflite")
+        val layersSizes =
+            intArrayOf(49152, 2359296, 6144, 393216, 65536, 1024, 491520, 3686400, 7680, 13440, 4)
         val sampleSpec = SampleSpec<Float3DArray, FloatArray>(
             { it.toTypedArray() },
             { it.toTypedArray() },
-            { Array(it) { FloatArray(CLASSES.size) } },
+            { Array(it) { FloatArray(1) } },
             ::negativeLogLikelihoodLoss,
-            ::classifierAccuracy,
+            ::placeholderAccuracy,
         )
         flowerClient = FlowerClient(buffer, layersSizes, sampleSpec)
-    }
-
-    suspend fun restoreInput() {
-        val input = db.inputDao().get() ?: return
-        runOnUiThread {
-            deviceId.text.append(input.device_id)
-            ip.text.append(input.ip)
-            port.text.append(input.port)
-        }
     }
 
     fun setResultText(text: String) {
@@ -98,38 +86,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun loadData(@Suppress("UNUSED_PARAMETER") view: View) {
-        if (deviceId.text.isEmpty() || !(1..10).contains(deviceId.text.toString().toInt())) {
-            Toast.makeText(
-                this,
-                "Please enter a client partition ID between 1 and 10 (inclusive)",
-                Toast.LENGTH_LONG
-            ).show()
-        } else {
-            hideKeyboard()
-            setResultText("Loading the local training dataset in memory. It will take several seconds.")
-            deviceId.isEnabled = false
-            loadDataButton.isEnabled = false
-            scope.launch {
-                loadDataInBackground()
-            }
-            scope.launch {
-                db.inputDao().upsertAll(
-                    Input(
-                        1,
-                        deviceId.text.toString(),
-                        ip.text.toString(),
-                        port.text.toString()
-                    )
-                )
-            }
+    fun evaluate(@Suppress("UNUSED_PARAMETER") view: View) {
+        hideKeyboard()
+        setResultText("Evaluating...")
+        deviceId.isEnabled = false
+        evaluateButton.isEnabled = false
+        scope.launch {
+            evaluateInBackground()
         }
     }
 
-    suspend fun loadDataInBackground() {
-        val result = runWithStacktraceOr("Failed to load training dataset.") {
-            loadData(this, flowerClient, deviceId.text.toString().toInt())
-            "Training dataset is loaded in memory. Ready to train!"
+    suspend fun evaluateInBackground() {
+        val result = runWithStacktraceOr("Failed to evaluate.") {
+            // TODO: load data.
+            val (loss, _) = flowerClient.evaluate()
+            "Evaluation loss is $loss."
         }
         runOnUiThread {
             setResultText(result)
