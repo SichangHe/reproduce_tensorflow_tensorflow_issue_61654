@@ -23,12 +23,13 @@ import dev.flower.flower_tflite.helpers.placeholderAccuracy
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import java.util.*
+import kotlin.random.Random
 
 @Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity() {
     private val scope = MainScope()
-    lateinit var flowerClient: FlowerClient<Float3DArray, FloatArray>
-    lateinit var flowerServiceRunnable: FlowerServiceRunnable<Float3DArray, FloatArray>
+    lateinit var flowerClient: FlowerClient<Float2DArray, FloatArray>
+    lateinit var flowerServiceRunnable: FlowerServiceRunnable<Float2DArray, FloatArray>
     private lateinit var ip: EditText
     private lateinit var port: EditText
     private lateinit var evaluateButton: Button
@@ -53,7 +54,7 @@ class MainActivity : AppCompatActivity() {
         val buffer = loadMappedAssetFile(this, "fed_mcrnn1.tflite")
         val layersSizes =
             intArrayOf(49152, 2359296, 6144, 393216, 65536, 1024, 491520, 3686400, 7680, 13440, 4)
-        val sampleSpec = SampleSpec<Float3DArray, FloatArray>(
+        val sampleSpec = SampleSpec<Float2DArray, FloatArray>(
             { it.toTypedArray() },
             { it.toTypedArray() },
             { Array(it) { FloatArray(1) } },
@@ -98,7 +99,14 @@ class MainActivity : AppCompatActivity() {
 
     suspend fun evaluateInBackground() {
         val result = runWithStacktraceOr("Failed to evaluate.") {
-            // TODO: load data.
+            for (_i in 0..100) {
+                flowerClient.addSample(
+                    Array(7) { FloatArray(8) { Random.nextFloat() } },
+                    floatArrayOf(Random.nextFloat()),
+                    false
+                )
+            }
+            Log.d(TAG, "test samples: ${flowerClient.testSamples}")
             val (loss, _) = flowerClient.evaluate()
             "Evaluation loss is $loss."
         }
@@ -116,9 +124,7 @@ class MainActivity : AppCompatActivity() {
             ).matches()
         ) {
             Toast.makeText(
-                this,
-                "Please enter the correct IP and port of the FL server",
-                Toast.LENGTH_LONG
+                this, "Please enter the correct IP and port of the FL server", Toast.LENGTH_LONG
             ).show()
         } else {
             val port = if (TextUtils.isEmpty(portStr)) 0 else portStr.toInt()
@@ -163,4 +169,4 @@ class MainActivity : AppCompatActivity() {
 
 private const val TAG = "MainActivity"
 
-typealias Float3DArray = Array<Array<FloatArray>>
+typealias Float2DArray = Array<FloatArray>

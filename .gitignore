@@ -3,5 +3,4 @@
 **build/
 **.sqlite3*
 **.settings/
-**.tflite
 saved_model/
