@@ -6,47 +6,6 @@
         android:orientation="vertical"
         tools:context=".MainActivity">
 
-    <EditText
-            android:id="@+id/device_id_edit_text"
-            style="@style/Widget.Material3.TextInputEditText.FilledBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:fontFamily="@font/montserrat_light"
-            android:hint="Client Partition ID (1-10)"
-            android:inputType="numberDecimal"
-            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="#4a5663"
-            android:importantForAutofill="no" />
-
-    <EditText
-            android:id="@+id/serverIP"
-            style="@style/Widget.Material3.TextInputEditText.FilledBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:ems="10"
-            android:fontFamily="@font/montserrat_light"
-            android:hint="FL Server IP"
-            android:inputType="phone"
-            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="#4a5663"
-            android:importantForAutofill="no" />
-
-    <EditText
-            android:id="@+id/serverPort"
-            style="@style/Widget.Material3.TextInputEditText.FilledBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:ems="10"
-            android:fontFamily="@font/montserrat_light"
-            android:hint="FL Server Port"
-            android:inputType="numberDecimal"
-            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textColor="#4a5663"
-            android:importantForAutofill="no" />
-
     <Button
             android:id="@+id/evaluate"
             style="@android:style/Widget.Material.Button.Colored"

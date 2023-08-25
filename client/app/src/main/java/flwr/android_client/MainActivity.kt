@@ -7,7 +7,6 @@ import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import dev.flower.flower_tflite.FlowerClient
@@ -23,21 +22,15 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     private val scope = MainScope()
     lateinit var flowerClient: FlowerClient<Float2DArray, FloatArray>
-    private lateinit var ip: EditText
-    private lateinit var port: EditText
     private lateinit var evaluateButton: Button
     private lateinit var trainButton: Button
     private lateinit var resultText: TextView
-    private lateinit var deviceId: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         resultText = findViewById(R.id.grpc_response_text)
         resultText.movementMethod = ScrollingMovementMethod()
-        deviceId = findViewById(R.id.device_id_edit_text)
-        ip = findViewById(R.id.serverIP)
-        port = findViewById(R.id.serverPort)
         evaluateButton = findViewById(R.id.evaluate)
         evaluateButton.isEnabled = false
         trainButton = findViewById(R.id.start_training)
@@ -125,7 +118,7 @@ class MainActivity : AppCompatActivity() {
 
     suspend fun trainInBackground() {
         val result = runWithStacktraceOr("Failed to connect to the FL server \n") {
-            flowerClient.fit { runOnUiThread { setResultText("Losses: $it.") } }
+            flowerClient.fit(3) { runOnUiThread { setResultText("Losses: $it.") } }
             "Training successful \n"
         }
         runOnUiThread {
