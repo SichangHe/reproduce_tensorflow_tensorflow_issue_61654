@@ -2,34 +2,27 @@ package flwr.android_client
 
 import android.icu.text.SimpleDateFormat
 import android.os.Bundle
-import android.text.TextUtils
 import android.text.method.ScrollingMovementMethod
 import android.util.Log
-import android.util.Patterns
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import dev.flower.flower_tflite.FlowerClient
-import dev.flower.flower_tflite.FlowerServiceRunnable
 import dev.flower.flower_tflite.SampleSpec
-import dev.flower.flower_tflite.createFlowerService
 import dev.flower.flower_tflite.helpers.loadMappedAssetFile
 import dev.flower.flower_tflite.helpers.negativeLogLikelihoodLoss
 import dev.flower.flower_tflite.helpers.placeholderAccuracy
+import dev.flower.flower_tflite.stockData
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import java.util.*
-import kotlin.random.Random
 
-@Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity() {
     private val scope = MainScope()
     lateinit var flowerClient: FlowerClient<Float2DArray, FloatArray>
-    lateinit var flowerServiceRunnable: FlowerServiceRunnable<Float2DArray, FloatArray>
     private lateinit var ip: EditText
     private lateinit var port: EditText
     private lateinit var evaluateButton: Button
@@ -46,11 +39,15 @@ class MainActivity : AppCompatActivity() {
         ip = findViewById(R.id.serverIP)
         port = findViewById(R.id.serverPort)
         evaluateButton = findViewById(R.id.evaluate)
-        trainButton = findViewById(R.id.trainFederated)
-        createFlowerClient()
+        evaluateButton.isEnabled = false
+        trainButton = findViewById(R.id.start_training)
+        trainButton.isEnabled = false
+        scope.launch {
+            prepareFlowerClient()
+        }
     }
 
-    private fun createFlowerClient() {
+    private fun prepareFlowerClient() {
         val buffer = loadMappedAssetFile(this, "fed_mcrnn1.tflite")
         val layersSizes =
             intArrayOf(49152, 2359296, 6144, 393216, 65536, 1024, 491520, 3686400, 7680, 13440, 4)
@@ -62,6 +59,17 @@ class MainActivity : AppCompatActivity() {
             ::placeholderAccuracy,
         )
         flowerClient = FlowerClient(buffer, layersSizes, sampleSpec)
+        val data = stockData()
+
+        for ((bottleneck, label) in data) {
+            flowerClient.addSample(bottleneck, floatArrayOf(label), true)
+            flowerClient.addSample(bottleneck, floatArrayOf(label), false)
+        }
+        Log.d(TAG, "Samples: ${flowerClient.testSamples}")
+        runOnUiThread {
+            evaluateButton.isEnabled = true
+            trainButton.isEnabled = true
+        }
     }
 
     fun setResultText(text: String) {
@@ -90,8 +98,6 @@ class MainActivity : AppCompatActivity() {
     fun evaluate(@Suppress("UNUSED_PARAMETER") view: View) {
         hideKeyboard()
         setResultText("Evaluating...")
-        deviceId.isEnabled = false
-        evaluateButton.isEnabled = false
         scope.launch {
             evaluateInBackground()
         }
@@ -99,61 +105,31 @@ class MainActivity : AppCompatActivity() {
 
     suspend fun evaluateInBackground() {
         val result = runWithStacktraceOr("Failed to evaluate.") {
-            for (_i in 0..100) {
-                flowerClient.addSample(
-                    Array(7) { FloatArray(8) { Random.nextFloat() } },
-                    floatArrayOf(Random.nextFloat()),
-                    false
-                )
-            }
-            Log.d(TAG, "test samples: ${flowerClient.testSamples}")
             val (loss, _) = flowerClient.evaluate()
             "Evaluation loss is $loss."
         }
         runOnUiThread {
             setResultText(result)
-            trainButton.isEnabled = true
         }
     }
 
-    fun runGrpc(@Suppress("UNUSED_PARAMETER") view: View) {
-        val host = ip.text.toString()
-        val portStr = port.text.toString()
-        if (TextUtils.isEmpty(host) || TextUtils.isEmpty(portStr) || !Patterns.IP_ADDRESS.matcher(
-                host
-            ).matches()
-        ) {
-            Toast.makeText(
-                this, "Please enter the correct IP and port of the FL server", Toast.LENGTH_LONG
-            ).show()
-        } else {
-            val port = if (TextUtils.isEmpty(portStr)) 0 else portStr.toInt()
-            scope.launch {
-                runWithStacktrace {
-                    runGrpcInBackground(host, port)
-                }
+    fun startTraining(@Suppress("UNUSED_PARAMETER") view: View) {
+        scope.launch {
+            runWithStacktrace {
+                trainInBackground()
             }
-            hideKeyboard()
-            ip.isEnabled = false
-            this.port.isEnabled = false
-            trainButton.isEnabled = false
-            setResultText("Started training.")
         }
+        hideKeyboard()
+        setResultText("Started training.")
     }
 
-    suspend fun runGrpcInBackground(host: String, port: Int) {
-        val address = "dns:///$host:$port"
+    suspend fun trainInBackground() {
         val result = runWithStacktraceOr("Failed to connect to the FL server \n") {
-            flowerServiceRunnable = createFlowerService(address, false, flowerClient) {
-                runOnUiThread {
-                    setResultText(it)
-                }
-            }
-            "Connection to the FL server successful \n"
+            flowerClient.fit { runOnUiThread { setResultText("Losses: $it.") } }
+            "Training successful \n"
         }
         runOnUiThread {
             setResultText(result)
-            trainButton.isEnabled = false
         }
     }
 
